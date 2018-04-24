@@ -81,18 +81,20 @@ def predict_one_model():
 
     with tf.Session() as session:
         session.run([tf.global_variables_initializer(), tf.tables_initializer()])
-        results = pd.DataFrame(columns=['probability'])
 
         evidence_embedding = session.run(model(evidences['sentence'].tolist()))
+        similar_sentences = pd.DataFrame(columns=['probability'])
         for doc in docs.iterrows():
-
             sentences = split_into_sentences(doc[1].text, int(average_sentence_length))
             sentence_embedding = session.run(model(sentences))
 
             similarity = np.matmul(evidence_embedding, np.transpose(sentence_embedding))
-            similar_sentences = get_similar_sentences(similarity, evidences, sentences, doc[1]['_id'])
+            similar_sentences = similar_sentences.append(get_similar_sentences(similarity, evidences, sentences, doc[1]['_id']))
 
-    return similar_sentences.sort_values(by=['probability'], ascending=False).head(100).to_json(orient='records')
+        similar_sentences.sort_values(by=['probability'], ascending=False, inplace=True)
+        similar_sentences.drop_duplicates(inplace=True)
+
+    return similar_sentences.to_json(orient='records')
 
 
 @app.route('/classification/predict', methods=['POST'])
@@ -112,4 +114,7 @@ def predict_route():
         similarity = np.matmul(evidence_embedding, np.transpose(sentence_embedding))
         similar_sentences = get_similar_sentences(similarity, evidences, sentences, doc_id)
 
-    return similar_sentences.sort_values(by=['probability'], ascending=False).head(100).to_json(orient='records')
+        similar_sentences.sort_values(by=['probability'], ascending=False, inplace=True)
+        similar_sentences.drop_duplicates(inplace=True)
+
+    return similar_sentences.to_json(orient='records')
